@@ -1,9 +1,14 @@
+from dataclasses import dataclass
 import os
 import tarfile
-import subprocess
 import asyncio
 import logging
 from modules.base import BaseTask
+
+@dataclass(frozen=True)
+class GitConfig:
+    local_tar: str = "backup.tar.gz"
+    git_dir: str = "ad"
 
 logger = logging.getLogger("git")
 
@@ -33,12 +38,23 @@ class GitInitializerTask(BaseTask):
     def __init__(self, git_dir: str):
         self.git_dir = git_dir
 
-    async def run(self) -> None:
-        def _run():
-            logger.info(f"initializing git repo in '{self.git_dir}'...")
-            subprocess.run(["git", "init"], cwd=self.git_dir, check=True, capture_output=True)
-            subprocess.run(["git", "add", "-A"], cwd=self.git_dir, check=True, capture_output=True)
-            subprocess.run(["git", "commit", "-m", "initial snapshot"], cwd=self.git_dir, check=True, capture_output=True)
-            logger.info("git repo initialized and initial snapshot committed.")
+    async def _run_git_cmd(self, args: list[str]) -> None:
+        proc = await asyncio.create_subprocess_exec(
+            *args,
+            cwd=self.git_dir,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            err_msg = stderr.decode().strip()
+            logger.error(f"git command '{' '.join(args)}' failed (code {proc.returncode}): {err_msg}")
+            raise RuntimeError(f"Git command failed: {err_msg}")
 
-        await asyncio.to_thread(_run)
+    async def run(self) -> None:
+        logger.info(f"initializing git repo in '{self.git_dir}'...")
+        os.makedirs(self.git_dir, exist_ok=True)
+        await self._run_git_cmd(["git", "init"])
+        await self._run_git_cmd(["git", "add", "-A"])
+        await self._run_git_cmd(["git", "commit", "--allow-empty", "-m", "initial snapshot"])
+        logger.info("git repo initialized and initial snapshot committed.")

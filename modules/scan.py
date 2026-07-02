@@ -19,7 +19,12 @@ SENSITIVE_PATTERN = re.compile(
     r')',
     re.IGNORECASE,
 )
-SKIP_EXTENSIONS = {'.pyc', '.pyo', '.class', '.o', '.so', '.a', '.bin', '.exe', '.dll'}
+SKIP_EXTENSIONS = {
+    '.pyc', '.pyo', '.class', '.o', '.so', '.a', '.bin', '.exe', '.dll', '.dylib',
+    '.zip', '.tar', '.gz', '.tgz', '.bz2', '.rar', '.7z',
+    '.png', '.jpg', '.jpeg', '.gif', '.ico', '.pdf', '.mp4', '.mp3',
+    '.db', '.sqlite', '.sqlite3', '.pcap', '.pcapng'
+}
 SKIP_DIRS = {'__pycache__', '.git', 'node_modules', '.tox', '.mypy_cache'}
 EXCEPTION_LINE = re.compile(
     r'^(Traceback \(|  File "|During handling|[A-Za-z]+Error:|[A-Za-z]+Exception:|[A-Za-z]+Warning:|\s+File ".*", line \d+)'
@@ -72,7 +77,10 @@ class CredentialScannerTask(BaseTask):
                                         if len(self.findings) < MAX_FINDINGS:
                                             # Format path with forward slashes for cross-platform consistency
                                             clean_path = fpath.replace("\\", "/")
-                                            self.findings.append(f"`{clean_path}:{lineno}` {line.strip()}")
+                                            clean_line = line.strip()
+                                            if len(clean_line) > 150:
+                                                clean_line = clean_line[:150] + " ... [TRUNCATED]"
+                                            self.findings.append(f"`{clean_path}:{lineno}` {clean_line}")
                         except Exception:
                             # Ignore read errors for unreadable or binary files
                             pass

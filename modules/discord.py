@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import os
 import tarfile
 import asyncio
@@ -5,6 +6,12 @@ import discord
 import re
 import logging
 from modules.base import BaseTask
+
+@dataclass(frozen=True)
+class DiscordConfig:
+    guild_id: int
+    token: str
+    category: str | None = None
 
 logger = logging.getLogger("discord")
 
@@ -16,22 +23,19 @@ def get_directory_names(tar_path: str) -> list[str]:
     if not os.path.exists(tar_path):
         raise FileNotFoundError(f"tar file '{tar_path}' not found.")
 
-    with tarfile.open(tar_path, "r:gz") as tf:
-        members = tf.getmembers()
     top_level_dirs: set[str] = set()
-
-    for m in members:
-        name = m.name.strip()
-        if name.startswith("./"):
-            name = name[2:]
-        if not name or name in (".", ".."):
-            continue
-        parts = name.split("/")
-        if m.isdir() and len(parts) == 1:
-            clean = parts[0].strip()
-            if not clean or clean.startswith("."):
+    with tarfile.open(tar_path, "r:gz") as tf:
+        for m in tf:
+            name = m.name.strip()
+            if name.startswith("./"):
+                name = name[2:]
+            if not name or name in (".", ".."):
                 continue
-            top_level_dirs.add(clean)
+            parts = [p for p in name.split("/") if p]
+            if m.isdir() or len(parts) > 1:
+                clean = parts[0].strip()
+                if clean and not clean.startswith("."):
+                    top_level_dirs.add(clean)
 
     return sorted(top_level_dirs)
 
@@ -70,9 +74,10 @@ def resolve_category(guild: discord.Guild, category_hint: str) -> discord.Catego
 class DiscordConnectionManager:
     """Manages the Discord client connection lifecycle in the background."""
 
-    def __init__(self, token: str, guild_id: int):
-        self.token = token
-        self.guild_id = guild_id
+    def __init__(self, config: DiscordConfig):
+        self.config = config
+        self.token = config.token
+        self.guild_id = config.guild_id
         intents = discord.Intents.default()
         intents.guilds = True
         intents.messages = True

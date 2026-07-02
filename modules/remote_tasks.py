@@ -20,9 +20,9 @@ class RemoteTarCreatorTask(BaseTask):
                 f"find . -maxdepth 1 -mindepth 1 -type d ! -name '.*' -printf '%P\\n' | "
                 f"tar -czf {self.remote_tar} -T -"
             )
-            _, err = self.ssh_client.execute_command(cmd)
-            if err and "file changed as we read it" not in err:
-                raise RuntimeError(f"error creating remote tar: {err}")
+            code, _, err = self.ssh_client.execute_command(cmd)
+            if code != 0 and "file changed as we read it" not in err:
+                raise RuntimeError(f"error creating remote tar (exit code {code}): {err}")
             logger.info("remote tar created.")
 
         await asyncio.to_thread(_run)
@@ -50,9 +50,9 @@ class RemoteCleanupTask(BaseTask):
 
     async def run(self) -> None:
         def _run():
-            _, err = self.ssh_client.execute_command(f"rm -f {self.remote_tar}")
-            if err:
-                raise RuntimeError(f"error deleting remote file: {err}")
+            code, _, err = self.ssh_client.execute_command(f"rm -f {self.remote_tar}")
+            if code != 0:
+                raise RuntimeError(f"error deleting remote file (exit code {code}): {err}")
             logger.info("remote tar deleted.")
 
         await asyncio.to_thread(_run)
