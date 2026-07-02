@@ -3,7 +3,10 @@ import tarfile
 import asyncio
 import discord
 import re
+import logging
 from modules.base import BaseTask
+
+logger = logging.getLogger("discord")
 
 CATEGORY_NAME = "a/d channels"
 GENERAL_NAMES = {"general", "generale"}
@@ -82,10 +85,10 @@ class DiscordConnectionManager:
 
         @self.client.event
         async def on_ready():
-            print(f"[+] bot connected as {self.client.user}")
+            logger.info(f"bot connected as {self.client.user}")
             self.guild = self.client.get_guild(self.guild_id)
             if self.guild is None:
-                print(f"[error] guild with id {self.guild_id} not found or bot not in guild.")
+                logger.error(f"guild with id {self.guild_id} not found or bot not in guild.")
             self.ready_event.set()
 
     async def start(self) -> None:
@@ -103,7 +106,7 @@ class DiscordConnectionManager:
         """Closes the discord connection safely."""
         if not self.client.is_closed():
             await self.client.close()
-            print("[*] discord connection closed.")
+            logger.info("discord connection closed.")
 
 class DiscordCategorySetupTask(BaseTask):
     """Task to resolve or create the Discord category channel."""
@@ -120,14 +123,14 @@ class DiscordCategorySetupTask(BaseTask):
         if self.category_hint:
             category = resolve_category(guild, self.category_hint)
             if category is None:
-                print(f"[error] could not find category '{self.category_hint}' in guild '{guild.name}'.")
-                print(f"[hint]  available categories: {[c.name for c in guild.categories]}")
+                logger.error(f"could not find category '{self.category_hint}' in guild '{guild.name}'.")
+                logger.error(f"available categories: {[c.name for c in guild.categories]}")
                 raise ValueError(f"Category '{self.category_hint}' not found.")
-            print(f"[*] using existing category '{category.name}' (id: {category.id})")
+            logger.info(f"using existing category '{category.name}' (id: {category.id})")
             self.discord_manager.category = category
         else:
             category_name = find_available_category_name(guild, CATEGORY_NAME)
-            print(f"[*] creating category '{category_name}' in guild '{guild.name}' ({guild.id})...")
+            logger.info(f"creating category '{category_name}' in guild '{guild.name}' ({guild.id})...")
             category = await guild.create_category(category_name)
             await guild.create_voice_channel("voice", category=category)
             self.discord_manager.category = category
@@ -152,7 +155,7 @@ class DiscordChannelsSetupTask(BaseTask):
         if general_channel is None:
             general_channel = await guild.create_text_channel("general", category=category)
         else:
-            print(f"[*] using existing channel '#{general_channel.name}' for archive post.")
+            logger.info(f"using existing channel '#{general_channel.name}' for archive post.")
         self.discord_manager.general_channel = general_channel
 
         # Create service channels
@@ -162,9 +165,9 @@ class DiscordChannelsSetupTask(BaseTask):
             if not safe_name or safe_name in GENERAL_NAMES | {"voice"}:
                 continue
             if safe_name in existing_channel_names:
-                print(f"[*] skipping '#{safe_name}' — already exists.")
+                logger.info(f"skipping '#{safe_name}' — already exists.")
                 continue
-            print(f"[*] creating channel '#{safe_name}'...")
+            logger.info(f"creating channel '#{safe_name}'...")
             await guild.create_text_channel(safe_name, category=category)
 
 class DiscordArchiveUploaderTask(BaseTask):
@@ -177,13 +180,13 @@ class DiscordArchiveUploaderTask(BaseTask):
     async def run(self) -> None:
         channel = self.discord_manager.general_channel
         if channel is None:
-            print("[warning] no 'general' channel found — archive will not be posted.")
+            logger.warning("no 'general' channel found — archive will not be posted.")
             return
 
         if not os.path.exists(self.local_tar):
             await channel.send(f"tar file '{self.local_tar}' not found on the bot host.")
             raise FileNotFoundError(f"Local tar archive '{self.local_tar}' not found.")
 
-        print(f"[*] uploading archive to '#{channel.name}'...")
+        logger.info(f"uploading archive to '#{channel.name}'...")
         await channel.send(content="enjoy hacking! 😄", file=discord.File(self.local_tar))
-        print("[+] archive uploaded.")
+        logger.info("archive uploaded.")

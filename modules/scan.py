@@ -2,8 +2,11 @@ import os
 import asyncio
 import re
 import discord
+import logging
 from modules.base import BaseTask
 from modules.discord import get_directory_names, DiscordConnectionManager
+
+logger = logging.getLogger("scan")
 
 MAX_FINDINGS = 50
 SENSITIVE_PATTERN = re.compile(
@@ -88,17 +91,17 @@ class DiscordReportSenderTask(BaseTask):
         try:
             await asyncio.wait_for(channel.send(content), timeout=30.0)
         except asyncio.TimeoutError:
-            print("[warning] channel.send timed out, skipping chunk.")
+            logger.warning("channel.send timed out, skipping chunk.")
         except Exception as e:
-            print(f"[warning] channel.send failed: {e}")
+            logger.warning(f"channel.send failed: {e}")
 
     async def run(self) -> None:
         channel = self.discord_manager.general_channel
         if channel is None:
-            print("[warning] no 'general' channel found — scan results will not be posted.")
+            logger.warning("no 'general' channel found — scan results will not be posted.")
             return
 
-        print("[*] reporting scan results to Discord...")
+        logger.info("reporting scan results to Discord...")
         if not self.findings:
             await self._send_text(channel, "🔍 no sensitive keywords found in archive.")
             return

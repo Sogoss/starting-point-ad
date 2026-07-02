@@ -1,6 +1,9 @@
 import asyncio
+import logging
 from modules.base import BaseTask
 from ssh_client import SSHClientWrapper
+
+logger = logging.getLogger("remote_tasks")
 
 class RemoteTarCreatorTask(BaseTask):
     """Task to create a tar archive of top-level service directories on the remote host."""
@@ -20,7 +23,7 @@ class RemoteTarCreatorTask(BaseTask):
             _, err = self.ssh_client.execute_command(cmd)
             if err and "file changed as we read it" not in err:
                 raise RuntimeError(f"error creating remote tar: {err}")
-            print("[+] remote tar created.")
+            logger.info("remote tar created.")
 
         await asyncio.to_thread(_run)
 
@@ -50,6 +53,6 @@ class RemoteCleanupTask(BaseTask):
             _, err = self.ssh_client.execute_command(f"rm -f {self.remote_tar}")
             if err:
                 raise RuntimeError(f"error deleting remote file: {err}")
-            print("[+] remote tar deleted.")
+            logger.info("remote tar deleted.")
 
         await asyncio.to_thread(_run)

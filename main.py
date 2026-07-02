@@ -3,6 +3,8 @@ import configparser
 import sys
 import asyncio
 import os
+import logging
+from log_utils import setup_logging
 
 from ssh_client import SSHClientWrapper
 from modules.remote_tasks import RemoteTarCreatorTask, SCPDownloadTask, RemoteCleanupTask
@@ -17,6 +19,8 @@ from modules.discord import (
 from modules.scan import CredentialScannerTask, DiscordReportSenderTask
 
 CONFIG_FILE = "config.ini"
+
+logger = logging.getLogger("main")
 
 
 def load_config(path: str) -> tuple:
@@ -76,7 +80,7 @@ async def async_main() -> None:
             CONFIG_FILE
         )
     except Exception as e:
-        print(f"[error] config error: {e}")
+        logger.error(f"Config error: {e}")
         sys.exit(1)
 
     # 1. Instantiate Discord Connection Manager and start connection in background
@@ -133,17 +137,17 @@ async def async_main() -> None:
         await asyncio.gather(git_task, discord_setup_task)
 
         # 4. Scanner and Report
-        print("[*] starting credential scanning flow...")
+        logger.info("starting credential scanning flow...")
         scanner_task = CredentialScannerTask(git_dir, local_tar)
         await scanner_task.run()
 
         report_task = DiscordReportSenderTask(discord_manager, scanner_task.findings, scanner_task.total)
         await report_task.run()
 
-        print("[+] pipeline execution completed successfully.")
+        logger.info("pipeline execution completed successfully.")
 
     except Exception as e:
-        print(f"[error] pipeline execution failed: {e}")
+        logger.error(f"pipeline execution failed: {e}")
     finally:
         # 5. Safe disposal of Discord client connection
         await discord_manager.close()
@@ -157,9 +161,10 @@ def main() -> None:
     try:
         asyncio.run(async_main())
     except KeyboardInterrupt:
-        print("\n[info] process interrupted by user.")
+        logger.info("process interrupted by user.")
         sys.exit(0)
 
 
 if __name__ == "__main__":
+    setup_logging()
     main()
