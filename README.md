@@ -43,8 +43,10 @@ pip install paramiko scp discord.py
 ```
 .
 ├── main.py        # Entry point: SSH flow + Discord bot orchestration
-├── bot.py         # Discord bot: category and channel creation
 ├── config.ini     # Configuration (SSH + paths + Discord)
+├── log_utils.py   # Custom logging utility with colors
+├── ssh_client.py  # Reusable SSH/SCP client wrapper
+├── modules/       # Pipeline tasks (git, remote_tasks, scan, discord)
 └── README.md
 ```
 
@@ -59,10 +61,10 @@ Edit `config.ini` before running:
 host=127.0.0.1
 port=22
 username=root
-
-[paths]
 remote_dir=~/
 remote_tar=~/backup.tar.gz
+
+[git]
 local_tar=backup.tar.gz
 git_dir=ad
 
